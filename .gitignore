@@ -1,0 +1,17 @@
+# Ficheiros de segredos do Streamlit (MUITO IMPORTANTE)
+.streamlit/secrets.toml
+secrets.toml
+
+# Ambientes virtuais (onde as bibliotecas são instaladas)
+venv/
+.env
+.venv/
+env/
+
+# Ficheiros compilados do Python (não são necessários no GitHub)
+__pycache__/
+*.pyc
+
+# Ficheiros de sistema do Mac/Windows
+.DS_Store
+Thumbs.db
