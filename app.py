@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 st.set_page_config(page_title="ArchViz Director AI", page_icon="🏢", layout="wide")
 load_dotenv()
 
-# --- CSS para dar um tapa no visual (Opcional) ---
+# --- CSS para melhorar o botão ---
 st.markdown("""
 <style>
     .stButton>button {
@@ -17,9 +17,6 @@ st.markdown("""
         color: white;
         height: 3em;
         font-weight: bold;
-    }
-    .reportview-container {
-        margin-top: -2em;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -32,25 +29,28 @@ with st.sidebar:
     if not api_key:
         api_key = st.text_input("Cole sua Google API Key aqui:", type="password")
         if not api_key:
-            st.warning("Por favor, insira sua API Key para começar.")
+            st.warning("⚠️ Insira sua API Key para começar.")
             st.stop()
     
     st.success("API Conectada!")
-    st.info("Este app usa o Gemini 1.5 Flash para visão computacional.")
+    st.info("Modelo: Gemini 1.5 Flash")
 
+# Configura a biblioteca
 genai.configure(api_key=api_key)
 
 # 3. Interface Principal
 st.title("🏢 ArchViz AI Director")
 st.markdown("### Gerador de Prompts para Detalhes (Freepik/Flux)")
-st.write("Faça upload do seu render geral e receba prompts prontos para gerar os **Detail Shots**.")
+st.write("Faça upload do seu render e receba prompts prontos para gerar **Detail Shots**.")
 
 uploaded_file = st.file_uploader("Arraste seu render ou croqui aqui", type=["jpg", "jpeg", "png"])
 
 # 4. Lógica de Processamento
 if uploaded_file is not None:
-    image = Image.open(uploaded_file)
+    # Layout de colunas
     col1, col2 = st.columns([1, 1])
+    
+    image = Image.open(uploaded_file)
     
     with col1:
         st.image(image, caption='Render Original', use_container_width=True)
@@ -60,47 +60,48 @@ if uploaded_file is not None:
         generate_btn = st.button("Analisar e Gerar Prompts")
 
         if generate_btn:
-            with st.spinner('O Diretor de Arte está analisando texturas e iluminação...'):
+            with st.spinner('O Diretor de Arte está analisando a cena...'):
                 try:
+                    # PROMPT DO DIRETOR DE FOTOGRAFIA
                     system_instruction = """
-                    Atue como um Diretor de Fotografia Sênior especializado em Visualização Arquitetônica (ArchViz).
-                    Analise a imagem fornecida. Sua missão é identificar 3 áreas da imagem que renderiam excelentes "Detail Shots" (Close-ups macro) para compor o portfólio.
+                    Atue como um Diretor de Fotografia Sênior em ArchViz.
+                    Analise a imagem. Identifique 3 áreas para "Detail Shots" (Close-ups macro).
 
-                    Para cada uma das 3 áreas, escreva um PROMPT DE IMAGEM OTIMIZADO em INGLÊS para ser usado em geradores de IA (como Freepik Mystic, Flux ou Midjourney).
+                    Para cada área, crie um PROMPT DE IMAGEM em INGLÊS para geradores como Freepik Mystic ou Flux.
 
-                    Regras de Ouro para os Prompts:
-                    1. Use INGLÊS apenas.
-                    2. Descreva a textura, o material e a iluminação em detalhes.
-                    3. Inclua palavras-chave técnicas de fotografia: "Macro shot", "Extreme close-up", "Depth of field", "Bokeh", "8k resolution", "Photorealistic", "Soft cinematic lighting".
-                    4. Não descreva a sala inteira, foque apenas no detalhe (ex: as fibras do tecido, o reflexo na madeira, a costura do couro).
+                    Regras:
+                    1. Use APENAS INGLÊS nos prompts.
+                    2. Foco em texturas, luz e realismo (8k, photorealistic, macro shot, depth of field).
+                    3. Formate a saída exatamente assim:
 
-                    Formato de Saída Obrigatório:
-                    
-                    ### 📸 Detalhe 1: [Nome do Elemento]
+                    ### 📸 Detalhe 1: [Nome]
                     ```text
-                    [Insira aqui o Prompt Completo em Inglês]
+                    [Prompt em Inglês]
                     ```
 
-                    ### 📸 Detalhe 2: [Nome do Elemento]
+                    ### 📸 Detalhe 2: [Nome]
                     ```text
-                    [Insira aqui o Prompt Completo em Inglês]
+                    [Prompt em Inglês]
                     ```
 
-                    ### 📸 Detalhe 3: [Nome do Elemento]
+                    ### 📸 Detalhe 3: [Nome]
                     ```text
-                    [Insira aqui o Prompt Completo em Inglês]
+                    [Prompt em Inglês]
                     ```
                     """
 
+                    # Tenta carregar o modelo Flash
+                    # Se der erro de nome, tente trocar para 'gemini-1.5-pro-latest'
                     model = genai.GenerativeModel('gemini-1.5-flash')
+                    
                     response = model.generate_content([system_instruction, image])
                     
-                    st.success("Análise Concluída! Copie os prompts abaixo:")
-                    st.markdown("---")
+                    st.success("Análise Concluída! Copie os códigos abaixo:")
                     st.markdown(response.text)
                     
                 except Exception as e:
-                    st.error(f"Ocorreu um erro ao processar: {e}")
+                    st.error(f"Erro ao processar. Detalhes: {e}")
+                    st.warning("Dica: Se o erro for 404, verifique se a API Key é válida e tem acesso ao modelo Flash.")
 
 else:
-    st.info("👈 Aguardando upload da imagem...")
+    st.info("👈 Faça o upload da imagem para começar.")
