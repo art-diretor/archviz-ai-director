@@ -5,10 +5,10 @@ import os
 from dotenv import load_dotenv
 
 # 1. Configuração Inicial
-st.set_page_config(page_title="ArchViz Director AI", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="ArchViz AI Director", page_icon="🏢", layout="wide")
 load_dotenv()
 
-# CSS Opcional
+# CSS 
 st.markdown("""
 <style>
     .stButton>button {
@@ -32,12 +32,25 @@ with st.sidebar:
             st.warning("Insira a API Key.")
             st.stop()
     st.success("Conectado")
+    
+    # --- NOVO: Botão de Diagnóstico (Caso dê erro) ---
+    st.markdown("---")
+    if st.checkbox("🛠️ Ver Modelos Disponíveis"):
+        try:
+            genai.configure(api_key=api_key)
+            st.write("Modelos que sua chave enxerga:")
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    st.code(m.name)
+        except Exception as e:
+            st.error(f"Erro ao listar: {e}")
 
 genai.configure(api_key=api_key)
 
 # 3. Interface
 st.title("🏢 ArchViz AI Director")
 st.markdown("### Gerador de Prompts para Detalhes")
+st.info("💡 Dica: O uso é gratuito (Free Tier do Google AI Studio).")
 
 uploaded_file = st.file_uploader("Upload do Render", type=["jpg", "jpeg", "png"])
 
@@ -51,7 +64,7 @@ if uploaded_file is not None:
     with col2:
         st.write("#### 🎯 Ação")
         if st.button("Analisar e Gerar Prompts"):
-            with st.spinner('Analisando...'):
+            with st.spinner('Analisando composição e luz...'):
                 
                 system_instruction = """
                 Atue como um Diretor de Fotografia em ArchViz. Identifique 3 áreas para "Detail Shots".
@@ -64,22 +77,34 @@ if uploaded_file is not None:
                 (Repita para 2 e 3)
                 """
 
-                # --- LÓGICA DE PROTEÇÃO (AQUI ESTÁ A CORREÇÃO) ---
+                # --- LÓGICA ATUALIZADA (SÓ FAMÍLIA 1.5) ---
+                response = None
+                errors = []
+
+                # Tenta Modelo 1: Flash (Rápido)
                 try:
-                    # Tentativa 1: Tenta o modelo Flash (Rápido e Novo)
-                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    model = genai.GenerativeModel('gemini-1.5-flash')
                     response = model.generate_content([system_instruction, image])
-                
-                except Exception as e:
-                    # Tentativa 2: Se der erro (404), usa o modelo PRO VISION (Estável)
-                    st.warning("⚠️ Modelo Flash indisponível. Usando backup (Gemini Pro Vision)...")
+                except Exception as e1:
+                    errors.append(f"Flash falhou: {e1}")
+                    
+                    # Tenta Modelo 2: Pro (Mais robusto)
                     try:
-                        model = genai.GenerativeModel('gemini-pro-vision')
+                        st.warning("⚠️ Trocando para Gemini 1.5 Pro...")
+                        model = genai.GenerativeModel('gemini-1.5-pro')
                         response = model.generate_content([system_instruction, image])
                     except Exception as e2:
-                        st.error(f"Erro fatal: {e2}")
-                        st.stop()
-                
-                # Exibe o resultado
-                st.success("Pronto! Copie abaixo:")
-                st.markdown(response.text)
+                         errors.append(f"Pro falhou: {e2}")
+
+                # Exibição
+                if response:
+                    st.success("Análise Concluída!")
+                    st.markdown(response.text)
+                else:
+                    st.error("❌ Não foi possível gerar com nenhum modelo.")
+                    with st.expander("Ver detalhes do erro"):
+                        st.write(errors)
+                        st.write("Dica: Use o checkbox na barra lateral para ver se sua API Key é válida.")
+
+else:
+    st.info("👈 Faça o upload da imagem para começar.")
