@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import os
+import json
 from dotenv import load_dotenv
 
 # 1. Configuração da Página
@@ -9,12 +10,6 @@ st.set_page_config(page_title="KAAZA AI Director", page_icon="🟦", layout="wid
 load_dotenv()
 
 # 2. DESIGN SYSTEM (Baseado no Brandbook Kaaza)
-# Cores:
-# Azul Kaaza (Primary): #0078FF
-# Midnight Blue (Dark): #001437
-# Royal Blue: #00286E
-# Fonte: Montserrat
-
 st.markdown("""
 <style>
     /* Importando Fonte Montserrat do Google Fonts */
@@ -26,7 +21,7 @@ st.markdown("""
     }
 
     /* Títulos em Uppercase e Bold (Identidade Visual) */
-    h1, h2, h3 {
+    h1, h2, h3, h4 {
         font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -44,13 +39,13 @@ st.markdown("""
         font-weight: 700;
         font-size: 14px;
         text-transform: uppercase;
-        border-radius: 4px; /* Bordas mais retas, mais profissional */
+        border-radius: 4px;
         border: none;
         transition: all 0.3s ease;
     }
 
     .stButton>button:hover {
-        background-color: #005ecb; /* Azul um pouco mais escuro no hover */
+        background-color: #005ecb;
         box-shadow: 0 4px 12px rgba(0, 120, 255, 0.3);
     }
 
@@ -78,13 +73,9 @@ st.markdown("""
         border-right: 1px solid #1f2937;
     }
     
-    /* Card de Resultado */
-    .result-card {
-        background-color: #1a1c24;
-        padding: 20px;
-        border-left: 4px solid #0078FF;
-        border-radius: 4px;
-        margin-bottom: 20px;
+    /* Estilo para o Código */
+    .stCode {
+        font-family: 'Courier New', monospace !important;
     }
 
 </style>
@@ -126,7 +117,7 @@ if uploaded_files:
 
     st.markdown("---")
     
-    # Seletor de Estilo (Sem Emojis, Texto Técnico)
+    # Seletor de Estilo
     col_config1, col_config2 = st.columns([1,1])
     with col_config1:
         st.markdown("### MODO DE ANÁLISE")
@@ -149,14 +140,13 @@ if uploaded_files:
     if generate_btn:
         st.markdown("---")
         
-        # Barra de progresso geral
         progress_bar = st.progress(0)
         total_files = len(uploaded_files)
         
         for index, uploaded_file in enumerate(uploaded_files):
             image = Image.open(uploaded_file)
             
-            # Container visual para cada imagem
+            # Cabeçalho da Imagem
             st.markdown(f"### IMAGEM {index + 1}: {uploaded_file.name.upper()}")
             
             col_img, col_txt = st.columns([1, 1.5])
@@ -167,7 +157,7 @@ if uploaded_files:
             with col_txt:
                 with st.spinner(f'Processando imagem {index + 1}...'):
                     
-                    # Definição do Prompt do Sistema (Sem emojis, focado em inglês técnico)
+                    # --- AQUI ESTÁ A MUDANÇA: SOLICITANDO JSON ESTRUTURADO ---
                     if mode == "MACRO TEXTURAS":
                         system_instruction = """
                         Role: Senior ArchViz Art Director.
@@ -175,22 +165,12 @@ if uploaded_files:
                         Goal: Create prompts for Flux/Mystic to generate photorealistic close-ups.
                         Visual Language: Macro lens, shallow depth of field, tactile textures.
                         
-                        Output Format (Strictly English):
-                        
-                        **DETAIL 01: [Element Name]**
-                        ```text
-                        [Prompt]
-                        ```
-                        
-                        **DETAIL 02: [Element Name]**
-                        ```text
-                        [Prompt]
-                        ```
-                        
-                        **DETAIL 03: [Element Name]**
-                        ```text
-                        [Prompt]
-                        ```
+                        IMPORTANT: You must return a pure JSON array (no markdown code blocks).
+                        Structure:
+                        [
+                            {"title": "DETAIL NAME", "reasoning": "Why this texture matters...", "prompt": "Full English Prompt Here"},
+                            {"title": "DETAIL NAME", "reasoning": "...", "prompt": "..."}
+                        ]
                         """
                     else: # CROPS DE COMPOSIÇÃO
                         system_instruction = """
@@ -199,25 +179,14 @@ if uploaded_files:
                         Goal: Create prompts for Flux/Mystic to generate lifestyle vignettes or architectural details.
                         Visual Language: 35mm, 50mm or 85mm lens. Focus on light, shadow, and furniture arrangement. NO extreme macro.
                         
-                        Output Format (Strictly English):
-                        
-                        **CROP 01: [Element Name]**
-                        ```text
-                        [Prompt]
-                        ```
-                        
-                        **CROP 02: [Element Name]**
-                        ```text
-                        [Prompt]
-                        ```
-                        
-                        **CROP 03: [Element Name]**
-                        ```text
-                        [Prompt]
-                        ```
+                        IMPORTANT: You must return a pure JSON array (no markdown code blocks).
+                        Structure:
+                        [
+                            {"title": "CROP NAME", "reasoning": "Composition explanation...", "prompt": "Full English Prompt Here"},
+                            {"title": "CROP NAME", "reasoning": "...", "prompt": "..."}
+                        ]
                         """
 
-                    # Tentativa de Modelos (Fallback System)
                     response = None
                     models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
                     
@@ -231,19 +200,34 @@ if uploaded_files:
                             continue
 
                     if response:
-                        # Estilizando a saída dentro de um container HTML customizado
-                        st.markdown(f"""
-                        <div class="result-card">
-                            {response.text}
-                        </div>
-                        """, unsafe_allow_html=True)
+                        try:
+                            # Limpeza da resposta para garantir JSON válido
+                            clean_text = response.text.replace('```json', '').replace('```', '').strip()
+                            data = json.loads(clean_text)
+                            
+                            # Renderização Organizada (Loop)
+                            for item in data:
+                                # Título e Explicação
+                                st.markdown(f"""
+                                <div style="margin-bottom: 5px; margin-top: 10px;">
+                                    <span style="color: #0078FF; font-weight: bold; font-size: 1.1em;">// {item['title'].upper()}</span><br>
+                                    <span style="color: #cccccc; font-size: 0.9em; font-style: italic;">{item['reasoning']}</span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # Caixa de Código (Com botão de copiar nativo)
+                                st.code(item['prompt'], language="text")
+                                st.write("---")
+                                
+                        except Exception as e:
+                            # Caso a IA falhe no JSON, mostra o texto bruto como fallback
+                            st.warning("Formato simplificado (JSON falhou):")
+                            st.write(response.text)
                     else:
                         st.error("Falha ao processar esta imagem.")
             
             st.markdown("---")
-            # Atualiza barra de progresso
             progress_bar.progress((index + 1) / total_files)
 
 else:
-    # Estado vazio (Placeholder elegante)
     st.info("Aguardando upload de arquivos para iniciar a direção de arte.")
